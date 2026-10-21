@@ -1,0 +1,14 @@
+# build products
+build/
+dist/
+
+# signing material — never commit these
+*.jks
+*.keystore
+*.pass
+keystore.properties
+
+# tooling
+.gradle/
+*.iml
+.idea/

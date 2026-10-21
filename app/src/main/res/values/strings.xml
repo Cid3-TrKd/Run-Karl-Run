@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Run-Karl-Run</string>
+    <string name="tagline">A fat cat that runs to your CPU</string>
+
+    <string name="cpu_label">CPU usage</string>
+    <string name="cpu_unknown">—</string>
+    <string name="cpu_cores_unknown">core usage unavailable</string>
+    <plurals name="cpu_usage_cores">
+        <item quantity="one">CPU usage · %d core</item>
+        <item quantity="other">CPU usage · %d cores</item>
+    </plurals>
+    <string name="state_idle">Karl is sleeping</string>
+    <string name="state_running">Karl is running</string>
+
+    <string name="start">Start running</string>
+    <string name="stop">Stop</string>
+
+    <string name="fatcats">Fat-Cats</string>
+    <string name="fatcats_hint">Six colourways. Pick the one that runs for you.</string>
+    <string name="check">✓</string>
+
+    <string name="cat_black_name">Karl</string>
+    <string name="cat_black_eyes">black · yellow eyes</string>
+    <string name="cat_white_name">Marshmallow</string>
+    <string name="cat_white_eyes">white · black eyes</string>
+    <string name="cat_grey_name">Pebble</string>
+    <string name="cat_grey_eyes">grey · black eyes</string>
+    <string name="cat_blue_name">Blueberry</string>
+    <string name="cat_blue_eyes">blue · yellow eyes</string>
+    <string name="cat_orange_name">Pumpkin</string>
+    <string name="cat_orange_eyes">orange · yellow eyes</string>
+    <string name="cat_calico_name">Patches</string>
+    <string name="cat_calico_eyes">calico · yellow eyes</string>
+
+    <string name="notif_text">CPU %1$d%% · %2$s · %3$s</string>
+
+    <string name="gait_walk">walk</string>
+    <string name="gait_trot">trot</string>
+    <string name="gait_canter">canter</string>
+    <string name="gait_gallop">gallop</string>
+    <string name="gait_bolt">bolt</string>
+    <string name="channel_name">Status bar cat</string>
+    <string name="channel_desc">Karl running to your CPU usage</string>
+    <string name="permission_toast">Notifications are off — allow them so Karl can run in the status bar.</string>
+
+    <string name="source">Source on GitHub</string>
+    <string name="footer">v1.0 · MIT licence · no ads · no trackers · no network permission</string>
+</resources>
