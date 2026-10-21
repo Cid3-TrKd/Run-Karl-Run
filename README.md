@@ -128,6 +128,26 @@ about installing from outside the Play Store — that is expected for an unsigne
 by-Google build. Android 13+ will ask for notification permission on first run;
 without it the cat has no status bar to run in.
 
+## Verify your download
+
+Every release carries a `SHA256SUMS` file, so you can check that what arrived is
+what was published:
+
+```sh
+sha256sum -c SHA256SUMS
+# RunKarlRun-1.0.apk: OK
+```
+
+The APK is signed with a dedicated release key. To see who signed it:
+
+```sh
+apksigner verify --print-certs RunKarlRun-1.0.apk | grep 'SHA-256 digest'
+```
+
+That certificate is the app's identity — `CN=Run-Karl-Run` for every release. It
+is also why an update has to be signed with the same key: Android will refuse to
+install one that is not, and will ask you to uninstall the old version first.
+
 ## Licence
 
 MIT — see [LICENSE](LICENSE).
