@@ -142,11 +142,12 @@ The APK is signed with a dedicated release key. To see who signed it:
 
 ```sh
 apksigner verify --print-certs RunKarlRun-1.0.apk | grep 'SHA-256 digest'
+# 1b9dadc450396f5afabebdbb7f5eba6d628dd811d630c7156a9e709326acf6bc
 ```
 
-That certificate is the app's identity — `CN=Run-Karl-Run` for every release. It
-is also why an update has to be signed with the same key: Android will refuse to
-install one that is not, and will ask you to uninstall the old version first.
+If that digest is not exactly the line above, the file was not signed by this
+project and should not be installed. Full details of the signing identity, and
+what it means for updates, are in [SIGNING.md](SIGNING.md).
 
 ## Licence
 
