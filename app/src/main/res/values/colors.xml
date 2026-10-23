@@ -1,11 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg">#121214</color>
-    <color name="surface">#1B1B1F</color>
-    <color name="line">#2A2A31</color>
-    <color name="text">#F1F1F3</color>
-    <color name="muted">#9A9AA3</color>
-    <color name="accent">#F2C400</color>
-    <color name="on_accent">#121214</color>
+    <color name="bg">#0A0A14</color>
+    <color name="surface">#12121E</color>
+    <color name="line">#FF00FF</color>
+    <color name="text">#00FFFF</color>
+    <color name="muted">#8080AA</color>
+    <color name="accent">#FF00FF</color>
+    <color name="on_accent">#0A0A14</color>
     <color name="ic_launcher_background">#000000</color>
+    <color name="neon_cyan">#00FFFF</color>
+    <color name="neon_magenta">#FF00FF</color>
+    <color name="neon_green">#00FF00</color>
+    <color name="neon_pink">#FF0080</color>
+    <color name="neon_purple">#8000FF</color>
 </resources>
