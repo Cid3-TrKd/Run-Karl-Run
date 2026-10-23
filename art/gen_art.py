@@ -8,7 +8,7 @@ Outputs (relative to the project root):
   app/src/main/res/mipmap-*/ic_launcher.png
   app/src/main/res/mipmap-*/ic_launcher_round.png
   app/src/main/res/mipmap-*/ic_launcher_foreground.png
-  app/src/main/res/drawable-xxhdpi/cat_run_0..7.png     (72px = 24dp)
+  app/src/main/res/drawable-xxhdpi/cat_run_0..11.png    (72px = 24dp, two strides)
   app/src/main/res/drawable-nodpi/fatcat_*.png          (256px colourways)
   art/preview/sheet.png                                 (inspection only)
 """
@@ -102,61 +102,123 @@ def _leg(draw, hip, a1, a2, l1=2.55, l2=2.75, width=1.85):
     _stroke(draw, [(hx, hy), (kx, ky), (px, py)], width)
 
 
-def _run_frame(phase):
+def _run_frame(phase, lead):
+    """One pose of a gallop.
+
+    `phase` covers a single stride. `lead` (0 or 1) chooses which diagonal
+    leads, and it is the reason the second half of the loop is not a copy of the
+    first: at lead=1 the near and far legs swap.
+    """
     img = Image.new("RGBA", (W, W), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
 
     # s = +1 fully extended, s = -1 fully gathered. A gallop only reads at 24dp
-    # if the whole silhouette changes, not just the legs: the body must be long
-    # and low when the legs are splayed, short and high when they tuck under.
+    # if the whole silhouette changes, not just the legs.
     s = math.sin(phase)
     c = math.cos(phase)
 
-    hl = 6.3 + 1.6 * s          # body half length
-    hh = 3.9 - 0.45 * s         # body half height
-    cx = 11.4
-    cy = 12.3 + 1.2 * s         # low on the reach, high on the gather
+    hl = 7.0 + 0.45 * s         # body half length
+    hh = 3.65                   # body half height, constant
+    cx = 11.55
+    cy = 12.05 + 0.55 * s + 0.25 * math.sin(2.0 * phase)
 
     # tail streams out behind and whips once per stride
-    tx, ty = cx - hl + 0.7, cy - 1.4
+    tx, ty = cx - hl + 0.7, cy - 1.45
     _stroke(d, [(tx, ty),
-                (tx - 1.8, ty - 0.1 + 0.5 * c),
-                (tx - 3.1, ty - 1.4 + 0.95 * c),
-                (tx - 3.5, ty - 3.0 + 1.35 * c)], 1.75)
+                (tx - 1.85, ty - 0.15 + 0.55 * c),
+                (tx - 3.1, ty - 1.45 + 1.05 * c),
+                (tx - 3.35, ty - 3.0 + 1.5 * c)], 1.8)
 
-    # Legs: the reach splays front forward and hind back; the gather folds both
-    # under the body. The near pair trails the far pair slightly.
-    for near, off in ((False, 0.55), (True, 0.0)):
-        sw = math.sin(phase + off)
-        fold = 62.0 * (1.0 - sw) * 0.5
-        ha = -58.0 * sw
-        _leg(d, (cx - hl + 2.4, cy + hh - 0.85), ha, ha - fold,
-             l1=2.5, l2=2.6, width=1.7 if near else 1.48)
-        fa = 58.0 * sw
-        _leg(d, (cx + hl - 2.4, cy + hh - 0.85), fa, fa + fold,
-             l1=2.4, l2=2.5, width=1.76 if near else 1.5)
+    def leg(hip_x, sw, hind, near):
+        # The gather has to look airborne, not seated: shortening the drawn
+        # legs as they fold brings the paws up under the body.
+        reach = (sw + 1.0) * 0.5            # 1 = extended, 0 = gathered
+        ls = 0.80 + 0.20 * reach
+        fold = 58.0 * (1.0 - sw) * 0.5
+        if hind:
+            a1 = -72.0 * sw
+            a2 = a1 - fold
+            l1, l2 = 2.5 * ls, 2.65 * ls
+        else:
+            a1 = 72.0 * sw
+            a2 = a1 + fold
+            l1, l2 = 2.45 * ls, 2.55 * ls
+        _leg(d, (hip_x, cy + hh - 0.9), a1, a2, l1=l1, l2=l2,
+             width=1.8 if near else 1.45)
+
+    # Four feet, four phases. Front and hind are deliberately in quadrature: a
+    # real gallop's footfall is sequential, and driving every leg from one
+    # sin(phase) tucked all four under the body at the same instant, which at
+    # 24dp reads as a cat pouncing in place rather than running.
+    for near in (False, True):
+        base = phase + math.pi * lead + (0.0 if near else FAR_OFFSET)
+        leg(cx - hl + 2.35, math.sin(base), True, near)
+        leg(cx + hl - 2.35, math.sin(base + FRONT_LAG), False, near)
 
     # body
     d.ellipse([_p(cx - hl, cy - hh), _p(cx + hl, cy + hh)], fill=BLACK)
 
-    # head, carried on the front of the body
-    hx, hy, hr = cx + hl - 1.1, cy - 2.0, 3.25
+    # head, thrust forward on the reach and pulled back on the gather
+    # The head is carried at the *front* of the body, only a little above it.
+    # Riding it high (cy - 2.35) stacked head over body over legs, and at 24dp
+    # the gather poses read as a cat sitting up rather than running.
+    hx = cx + hl - 1.15 + 0.75 * s
+    hy = cy - 1.35 + 0.25 * s
+    hr = 3.15
     d.ellipse([_p(hx - hr, hy - hr), _p(hx + hr, hy + hr)], fill=BLACK)
-    d.polygon([_p(hx - 2.5, hy - 1.7), _p(hx - 1.9, hy - 5.1), _p(hx - 0.2, hy - 2.4)], fill=BLACK)
-    d.polygon([_p(hx + 0.55, hy - 2.4), _p(hx + 2.45, hy - 4.85), _p(hx + 3.0, hy - 1.5)], fill=BLACK)
-    return img
+    d.polygon([_p(hx - 2.4, hy - 1.6), _p(hx - 1.9, hy - 4.7), _p(hx - 0.2, hy - 2.3)], fill=BLACK)
+    d.polygon([_p(hx + 0.5, hy - 2.3), _p(hx + 2.4, hy - 4.5), _p(hx + 2.9, hy - 1.4)], fill=BLACK)
+
+    # Pitch the whole silhouette about its centre: nose down as the front legs
+    # reach, nose up in the gather. This is the cue that reads as running at
+    # 24dp.
+
+    return img.rotate(-7.5 * s, resample=Image.BICUBIC, center=(cx * S, cy * S))
+
+
+# The loop holds two strides, and that is a speed control rather than a
+# smoothness one. The status-bar icon can only be redrawn when the notification
+# is updated, and Android sheds updates faster than ~3.5/s, so a sprint has to
+# advance several poses per update. With 12 frames meaning *two* 6-frame
+# strides, a stride is 6/step posts long, and the fastest gait (step 6, one post
+# per stride) is a real 0.30 s gallop at 300 ms -- while the slowest (step 1) is
+# a 12-pose walk. Two strides, not one, also means the fast gaits alternate
+# between the two lead legs instead of repeating one pose.
+STRIDE_FRAMES = 6
+RUN_FRAMES = 12
+
+# Phase between the near and far leg pairs. Deliberately not pi: a real
+# quadruped's four feet fall in sequence, and a symmetrical pi makes the two
+# lead legs exactly swappable, so flipping the lead leaves the silhouette
+# unchanged (measured 153 differing pixels over a 1,645-pixel cat -- the
+# alternation was invisible and the fastest gait read as frozen). 0.6*pi is the
+# measured best: 440 differing pixels between the two halves of the loop while
+# every stride keeps ~1,150.
+FAR_OFFSET = 0.6 * math.pi
+
+# Quadrature offset between the hind and front legs. A gallop's footfall is
+# sequential; with one shared phase all four legs tucked together and the cat
+# appeared to pounce in place.
+FRONT_LAG = 0.45 * math.pi
 
 
 def gen_run_frames():
     d = os.path.join(RES, "drawable-xxhdpi")
     os.makedirs(d, exist_ok=True)
     frames = []
-    for f in range(8):
-        img = _run_frame(2 * math.pi * f / 8.0)
+    for f in range(RUN_FRAMES):
+        k = f % STRIDE_FRAMES
+        lead = (f // STRIDE_FRAMES) % 2
+        # The pi/6 offset puts the full reach and the full gather *on* frames
+        # instead of between them, so even a 3-pose stride lands on real
+        # extremes rather than on two half-way poses.
+        phase = 2.0 * math.pi * k / STRIDE_FRAMES + math.pi / 6.0
+        img = _run_frame(phase, lead)
         out = img.resize((72, 72), Image.LANCZOS)
         out.save(os.path.join(d, "cat_run_%d.png" % f))
         frames.append(out)
-    print("run frames: 8 x 72px (24dp)")
+    print("run frames: %d x 72px (24dp) = %d strides of %d"
+          % (RUN_FRAMES, RUN_FRAMES // STRIDE_FRAMES, STRIDE_FRAMES))
 
 
 # -------------------------------------------------------------- fat-cat colourways
@@ -311,10 +373,11 @@ def gen_fatcats():
 
 def gen_preview(fatcats, frames):
     os.makedirs(PREVIEW, exist_ok=True)
-    sheet = Image.new("RGBA", (6 * 256, 256 + 8 * 96 + 40), (18, 18, 20, 255))
+    n = len(frames)
+    sheet = Image.new("RGBA", (6 * 256, 256 + 96 + 40), (18, 18, 20, 255))
     for i, key in enumerate(COLOURWAYS):
         sheet.alpha_composite(fatcats[key], (i * 256, 0))
-    for i in range(8):
+    for i in range(n):
         f = frames[i].resize((96, 96), Image.LANCZOS)
         sheet.alpha_composite(f, (i * 96 + 8, 276))
     sheet.save(os.path.join(PREVIEW, "sheet.png"))
@@ -326,5 +389,5 @@ if __name__ == "__main__":
     gen_run_frames()
     fatcats = gen_fatcats()
     frames = [Image.open(os.path.join(RES, "drawable-xxhdpi", "cat_run_%d.png" % i)).convert("RGBA")
-              for i in range(8)]
+              for i in range(RUN_FRAMES)]
     gen_preview(fatcats, frames)

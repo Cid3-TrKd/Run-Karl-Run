@@ -45,5 +45,5 @@
     <string name="permission_toast">Notifications are off — allow them so Karl can run in the status bar.</string>
 
     <string name="source">Source on GitHub</string>
-    <string name="footer">v1.0 · MIT licence · no ads · no trackers · no network permission</string>
+    <string name="footer">v1.1 · MIT licence · no ads · no trackers · no network permission</string>
 </resources>

@@ -14,10 +14,12 @@ internet, so there is nothing to send anywhere.
 ## What it does
 
 - **Status-bar cat.** A foreground service keeps a small cat icon in the status
-  bar and redraws it frame by frame. Its gait follows real CPU usage in five
-  discrete steps.
-- **Live CPU readout.** While the app is open it samples once a second and shows
-  the overall percentage, the core count, and every core's own percentage.
+  bar and redraws it frame by frame. Its stride is a continuous function of real
+  CPU usage, so the speed tracks the load instead of stepping between gears.
+- **Live CPU readout.** While the app is open it polls once a second and shows
+  the overall percentage, the core count, and every core's own percentage. The
+  service behind the cat samples every 400 ms and smooths the result, which is
+  what makes the animation responsive.
 - **Six Fat-Cats.** Pick the one that runs for you. They are the same cat in
   different colourways, and the one you pick is what appears in the notification
   shade at full size.
@@ -35,26 +37,78 @@ The status-bar icon itself is tinted to a single colour by Android — that is t
 platform's rule for small icons, not a limitation of the app — so the colourways
 show in the app and as the large icon in the shade.
 
-## The five gaits
+## How the speed follows the load
 
-Five steps, not a continuous blend, so a change in load is something you can
-actually see. The bands meet between the load points that matter, and every
-boundary has a deadband of 5 CPU points: the reading is sampled once a second and
-wobbles, and without the deadband a load sitting on a boundary would flicker the
-cat between two speeds. With it, a load hovering on a boundary kept its gear for
-the whole trace.
+The stride — one full leg cycle — is mapped straight from CPU load: **2.1 s at
+idle down to 0.45 s with the CPU pegged**, linearly, so 50% load lands at 1.33 s.
+There are no gears and no deadband. The percentage in the text and the speed of
+the cat are the same number, which was not true of the five-gear version this
+replaces — that one could sit at "walk" while the CPU read 100%.
 
-| gear | gait | CPU | pose | poses per update | updates/s | poses/s | stride |
-|---|---|---|---|---|---|---|---|
-| 1 | walk | below 28% | 386 ms | 1 | 2.59 | 2.59 | 3.09 s |
-| 2 | trot | 28–47% | 320 ms | 1 | 3.13 | 3.13 | 2.56 s |
-| 3 | canter | 47–67% | 250 ms | 1 | 4.00 | 4.00 | 2.00 s |
-| 4 | gallop | 67–89% | 160 ms | **2** | 3.13 | 6.25 | 1.28 s |
-| 5 | bolt | 89% and up | 125 ms | **2** | 4.00 | 8.00 | 1.00 s |
+The pose is **derived from elapsed time**, not counted out per update:
 
-The two fastest gaits advance **two poses per update** — animating "on twos" —
-because the notification itself cannot be redrawn fast enough to animate them one
-pose at a time. See below for why.
+```
+phase   += elapsed / (2 * stride)          // 0..1, one full 12-frame loop
+frame    = floor(phase * 12)               // which of the twelve poses
+interval = clamp(stride * 2 / 6, 300, 700) // how often to post
+```
+
+Two things follow from deriving the pose instead of accumulating it.
+
+**The stride is exact.** With an integer "advance N poses per update", the stride
+can only ever be a whole number of update intervals long, so a 2.1 s walk and a
+0.45 s sprint cannot both be hit — every change of N made the cat lurch, and the
+old table could not get below 0.9 s at full load at all. Deriving the pose from
+the clock makes the stride whatever the curve asks for, and only the *cadence* is
+quantised.
+
+**A dropped update self-corrects.** If the platform sheds a post, the next one
+simply shows the pose the clock has reached. Nothing drifts, and nothing has to
+be caught up.
+
+The post interval is then a free choice, picked for smoothness: two poses per
+update, which is the animation convention "on twos", until the platform floor
+stops it.
+
+| load | stride | update every | updates/s | poses/update | gait |
+|---|---|---|---|---|---|
+| idle | 2.20 s | 700 ms | 1.4 | 2 | walk |
+| 20% | 1.85 s | 616 ms | 1.6 | 2 | walk |
+| 40% | 1.50 s | 500 ms | 2.0 | 2 | trot |
+| 50% | 1.33 s | 441 ms | 2.3 | 2 | trot |
+| 60% | 1.15 s | 383 ms | 2.6 | 2 | trot |
+| 70% | 0.98 s | 325 ms | 3.1 | 2 | canter |
+| 80% | 0.80 s | 300 ms | 3.3 | 2.3 | canter |
+| 90% | 0.63 s | 300 ms | 3.3 | 2.9 | gallop |
+| 100% | 0.45 s | 300 ms | 3.3 | 4 | **bolt** |
+
+The cadence rises monotonically from 1.4 to 3.3 updates a second and never dips;
+the number of poses per update only grows once the stride has become too short to
+show two poses within the 300 ms floor.
+
+**0.45 s is 2.2 strides a second, which is a galloping cat.** It is not faster for
+a structural reason rather than by taste: the platform will not deliver an update
+faster than one per 300 ms, and at 450 ms a stride is only one and a half updates
+long. Go much below that and the cat is showing two poses and no motion.
+
+The art is **twelve poses: two six-pose strides**, with the lead legs swapped
+between them. One twelve-pose stride was the earlier design and it animated
+smoothly, but it had no left/right alternation, so a stride could only be drawn
+by three or more poses — which is where the old 0.9 s "walk at full load" floor
+came from.
+
+The load reading is smoothed (a ~0.5 s time constant over 400 ms samples) and it
+is the same figure the text prints. An earlier version sampled once a second and
+stepped through gears with a deadband; it lagged the load in both directions, and
+at 100% it still walked.
+
+Measured on a Galaxy A26 5G (Android 16), notification counters before and after:
+
+| state | enqueued | delivered | shed |
+|---|---|---|---|
+| idle | 1.64/s | 1.64/s | 0 |
+| pegged (8 × `yes`) | 3.21/s | 3.21/s | **0** |
+| 5 s after release | 1.63/s | 1.63/s | 0 |
 
 ## How CPU is measured
 
@@ -66,31 +120,36 @@ the same sample, so they always agree.
 
 ## The platform limit that shaped the animation
 
-Android caps notification updates per package at roughly 5 per second and
-**drops** the excess rather than queueing it. Dropped frames scramble the order
-of the animation, which reads as a frozen cat. So the app deliberately posts
-slower than that cap and gets its speed from poses-per-update instead — the
-classic animation trick of doubling apparent speed at the same framerate.
+Android caps notification updates per package at about **3.5 per second** and
+**drops** the excess rather than queueing it. A dropped update is a pose the
+screen never shows, so posting too fast does not make the cat faster — it makes
+it stutter.
 
-Being precise about that ceiling took measurement, and the interesting part is
-that **it is not a one-second average.** At a 225 ms cadence the app posted 79 of
-86 updates with exactly 5 in the trailing second — 5.0/s on paper — and still had
-one update shed every five seconds, with the system reporting rates of 5.65–6.32/s.
-Reconstructing those reports from the same post timings puts the effective window
-at roughly 700–800 ms: four posts inside that window is what trips it. So a
-320 ms cadence (4 posts spanning 960 ms) runs clean, and 250 ms (4 posts in
-750 ms) sits just over the line.
+The exact shape of that cap is in AOSP, and it is not a plain "5 posts in the
+last second". `android.service.notification.RateEstimator` keeps an exponentially
+weighted average of the gap between enqueues (alpha 0.7) and
+`NotificationManagerService` compares `1 / rate` against a limit of 5. The check
+runs *after* the estimate has already been updated for the update being tested —
+`registerEnqueuedByAppAndAccepted()` is called early in
+`enqueueNotificationInternal()`, the rate check is later in `postNotification()` —
+so the "time since the last event" term is ~0 and the test collapses to
 
-The floor is 250 ms because the five gaits need that rate to stay distinct —
-from 2.59 to 8.00 poses per second. The cost is one dropped update every ~5
-seconds on the two gaits that post at 250 ms, which shows up as a single skipped
-pose. If you would rather have a perfectly even animation than five clearly
-different speeds, raise `MIN_POST_MS` in `CatService.java` to 320: the shedding
-stops, and trot and canter collapse into nearly the same speed.
+```
+1 / (0.7 * average_gap) > 5      <=>      average_gap < 285.7 ms
+```
 
-All of those numbers are measured on a Galaxy A26 5G running Android 16, from
-logcat post timings, with a `yes`-loop load and `/proc/stat` cross-checked
-against the app's own reading.
+Anything faster than roughly 3.5 updates a second gets shed. Measured on a
+Galaxy A26 5G running Android 16:
+
+| cadence | asked for | delivered | shed |
+|---|---|---|---|
+| 270 ms | 3.70/s | 1.35/s | **62%** |
+| 300 ms | 3.33/s | 3.14/s | 1.3–2.9% |
+| 320 ms | 3.13/s | 3.13/s | 0% |
+
+So 300 ms is the floor, and that floor is why the fast gaits advance more than
+one pose per update. The remaining 1–3% at 300 ms is jitter pushing individual
+gaps under the threshold; it is a skipped pose every few seconds, not a stutter.
 
 ## Permissions
 
@@ -113,11 +172,15 @@ No Gradle, no AndroidX — a plain framework app built with the SDK tools:
 
 ```sh
 # needs: a JDK, and Android SDK build-tools + platform android-36
-KEYSTORE=/path/to/your.jks KEYSTORE_PASS=... KEY_ALIAS=... ./build.sh
+RUNKARL_KS=/path/to/your.jks RUNKARL_KS_PASS=/path/to/password-file ./build.sh
 ```
 
+`RUNKARL_KS_PASS` is the path to a file holding the keystore password, not the
+password itself. There is no default keystore path, on purpose: a clone cannot
+accidentally sign as this project.
+
 `build.sh` runs `aapt2 → javac → d8 → zipalign → apksigner` and writes
-`dist/RunKarlRun-1.0.apk`. The art in `app/src/main/res/` is generated by
+`dist/RunKarlRun-1.2.apk`. The art in `app/src/main/res/` is generated by
 `art/gen_art.py` from `art/ghost-karl.jpeg`; `art/preview/sheet.png` shows the
 whole set at a glance.
 
@@ -135,13 +198,13 @@ what was published:
 
 ```sh
 sha256sum -c SHA256SUMS
-# RunKarlRun-1.0.apk: OK
+# RunKarlRun-1.2.apk: OK
 ```
 
 The APK is signed with a dedicated release key. To see who signed it:
 
 ```sh
-apksigner verify --print-certs RunKarlRun-1.0.apk | grep 'SHA-256 digest'
+apksigner verify --print-certs RunKarlRun-1.2.apk | grep 'SHA-256 digest'
 # 1b9dadc450396f5afabebdbb7f5eba6d628dd811d630c7156a9e709326acf6bc
 ```
 

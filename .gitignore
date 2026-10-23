@@ -12,3 +12,6 @@ keystore.properties
 .gradle/
 *.iml
 .idea/
+
+# python bytecode from art/gen_art.py
+__pycache__/

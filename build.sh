@@ -12,7 +12,7 @@ KS_PASS_FILE="${RUNKARL_KS_PASS:-}"
 
 OUT="$ROOT/build"
 DIST="$ROOT/dist"
-NAME="RunKarlRun-1.0.apk"
+NAME="RunKarlRun-1.2.apk"
 
 for f in "$BUILD_TOOLS/aapt2" "$BUILD_TOOLS/d8" "$BUILD_TOOLS/zipalign" \
          "$BUILD_TOOLS/apksigner" "$PLATFORM"; do
