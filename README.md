@@ -110,6 +110,12 @@ Measured on a Galaxy A26 5G (Android 16), notification counters before and after
 | pegged (8 × `yes`) | 3.21/s | 3.21/s | **0** |
 | 5 s after release | 1.63/s | 1.63/s | 0 |
 
+The screen agrees. Recording the status bar with `screenrecord` at full load and
+reading the compositor's own frames gives a median pose change of **300 ms**
+(3.30 poses/s), cycling through three poses. Three poses every 900 ms is one
+twelve-frame loop, i.e. two strides, so the stride **as rendered** is 450 ms —
+the figure the curve asks for, not just the figure it intends.
+
 ## How CPU is measured
 
 Mostly from `/proc/stat`, using deltas of the per-core `cpuN` lines between
