@@ -237,6 +237,18 @@ public class CatService extends Service {
         }
     }
 
+    private int colorFor(String key) {
+        switch (key) {
+            case "black":   return 0xFF222222;
+            case "white":   return 0xFFFFFFFF;
+            case "grey":    return 0xFF888888;
+            case "blue":    return 0xFF4488FF;
+            case "calico":  return 0xFFCC8844;
+            case "orange":
+            default:        return 0xFFFF8800;
+        }
+    }
+
     private Notification buildNotification() {
         Notification.Builder b = new Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(FRAMES[frame])
