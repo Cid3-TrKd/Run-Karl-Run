@@ -10,6 +10,8 @@ import android.content.pm.ServiceInfo;
 import android.graphics.drawable.Icon;
 import android.os.Build;
 import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Process;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
@@ -78,21 +80,23 @@ public class CatService extends Service {
     // walk/trot/canter are posting-rate limited (2.59, 3.13, 4.00 poses/s) and
     // gallop/bolt are on twos (6.25 and 8.00 poses/s posted at 3.13 and 4.00/s).
     // Cycle times come out 3.09, 2.56, 2.00, 1.28, 1.00 s.
-    private static final int[] GEAR_UP = {28, 47, 67, 89};   // CPU% that enters gear i+1
-    private static final int GEAR_HYST = 5;                  // deadband, CPU points
-    private static final int[] GEAR_POSE_MS = {386, 320, 250, 160, 125};
+    private static final int[] GEAR_UP = {15, 35, 55, 75};   // CPU% that enters gear i+1
+    private static final int GEAR_HYST = 2;                  // deadband, CPU points
+    private static final int[] GEAR_POSE_MS = {600, 400, 250, 150, 80};
     private static final int[] GEAR_NAME = {
             R.string.gait_walk, R.string.gait_trot, R.string.gait_canter,
             R.string.gait_gallop, R.string.gait_bolt
     };
 
-    private final Handler handler = new Handler(Looper.getMainLooper());
+    private HandlerThread thread;
+    private Handler handler;
     private final Cpu cpu = new Cpu();
 
     private int frame = 0;
     private int gear = 0;
     private int usage = 0;
     private long lastSampleAt = 0L;
+    private long nextPostAt = 0L;
     private String character = Prefs.DEFAULT_CHARACTER;
     private PendingIntent stopPi;
     private PendingIntent openPi;
@@ -101,7 +105,7 @@ public class CatService extends Service {
         @Override
         public void run() {
             long now = SystemClock.uptimeMillis();
-            if (now - lastSampleAt >= 1000L) {
+            if (now - lastSampleAt >= 400L) {
                 Cpu.Sample s = cpu.sample();
                 if (s.overall >= 0) usage = s.overall;
                 gear = gearFor(usage);
@@ -109,19 +113,19 @@ public class CatService extends Service {
             }
 
             int pose = GEAR_POSE_MS[gear];
-            // One pose per post, until the pose interval drops below the posting
-            // floor and one post has to carry two poses. Derived from the floor
-            // rather than hardcoded per gear, so the two stay in step.
             int step = Math.max(1, (int) Math.ceil(MIN_POST_MS / (double) pose));
             int iv = pose * step;
 
             frame = (frame + step) % FRAMES.length;
-            NotificationManager nm = getSystemService(NotificationManager.class);
-            if (nm != null) {
-                nm.notify(NOTIFICATION_ID, buildNotification());
-            }
+            postNotification();
 
-            handler.postDelayed(this, iv);
+            long next = nextPostAt + iv;
+            if (next <= now) {
+                final long skipped = (now - next) / iv + 1L;
+                next += skipped * iv;
+            }
+            nextPostAt = next;
+            handler.postAtTime(this, next);
         }
     };
 
@@ -129,6 +133,9 @@ public class CatService extends Service {
     public void onCreate() {
         super.onCreate();
         createChannel();
+        thread = new HandlerThread("runkarlrun-cat", Process.THREAD_PRIORITY_FOREGROUND);
+        thread.start();
+        handler = new Handler(thread.getLooper());
 
         // Built once. Re-creating these on every tick is two extra binder round trips
         // per frame, and the posts run at up to 4.8 per second.
@@ -176,6 +183,7 @@ public class CatService extends Service {
         running = true;
         cpu.sample();               // seed the delta so the first tick is real
         lastSampleAt = SystemClock.uptimeMillis();
+        nextPostAt = lastSampleAt;
         handler.removeCallbacks(tick);
         handler.post(tick);
 
@@ -220,6 +228,13 @@ public class CatService extends Service {
         ch.enableVibration(false);
         ch.setSound(null, null);
         nm.createNotificationChannel(ch);
+    }
+
+    private void postNotification() {
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        if (nm != null) {
+            nm.notify(NOTIFICATION_ID, buildNotification());
+        }
     }
 
     private Notification buildNotification() {

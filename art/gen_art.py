@@ -117,30 +117,30 @@ def _run_frame(phase, lead):
     s = math.sin(phase)
     c = math.cos(phase)
 
-    hl = 7.0 + 0.45 * s         # body half length
+    hl = 7.0 + 0.8 * s         # body half length
     hh = 3.65                   # body half height, constant
     cx = 11.55
-    cy = 12.05 + 0.55 * s + 0.25 * math.sin(2.0 * phase)
+    cy = 12.05 + 0.9 * s + 0.4 * math.sin(2.0 * phase)
 
     # tail streams out behind and whips once per stride
     tx, ty = cx - hl + 0.7, cy - 1.45
     _stroke(d, [(tx, ty),
                 (tx - 1.85, ty - 0.15 + 0.55 * c),
-                (tx - 3.1, ty - 1.45 + 1.05 * c),
-                (tx - 3.35, ty - 3.0 + 1.5 * c)], 1.8)
+                (tx - 3.1, ty - 1.45 + 1.8 * c),
+                (tx - 3.35, ty - 3.0 + 2.5 * c)], 1.8)
 
     def leg(hip_x, sw, hind, near):
         # The gather has to look airborne, not seated: shortening the drawn
         # legs as they fold brings the paws up under the body.
         reach = (sw + 1.0) * 0.5            # 1 = extended, 0 = gathered
         ls = 0.80 + 0.20 * reach
-        fold = 58.0 * (1.0 - sw) * 0.5
+        fold = 80.0 * (1.0 - sw) * 0.5
         if hind:
-            a1 = -72.0 * sw
+            a1 = -90.0 * sw
             a2 = a1 - fold
             l1, l2 = 2.5 * ls, 2.65 * ls
         else:
-            a1 = 72.0 * sw
+            a1 = 90.0 * sw
             a2 = a1 + fold
             l1, l2 = 2.45 * ls, 2.55 * ls
         _leg(d, (hip_x, cy + hh - 0.9), a1, a2, l1=l1, l2=l2,
@@ -162,18 +162,27 @@ def _run_frame(phase, lead):
     # The head is carried at the *front* of the body, only a little above it.
     # Riding it high (cy - 2.35) stacked head over body over legs, and at 24dp
     # the gather poses read as a cat sitting up rather than running.
-    hx = cx + hl - 1.15 + 0.75 * s
-    hy = cy - 1.35 + 0.25 * s
+    hx = cx + hl - 1.15 + 1.5 * s
+    hy = cy - 1.35 + 0.6 * s
     hr = 3.15
     d.ellipse([_p(hx - hr, hy - hr), _p(hx + hr, hy + hr)], fill=BLACK)
     d.polygon([_p(hx - 2.4, hy - 1.6), _p(hx - 1.9, hy - 4.7), _p(hx - 0.2, hy - 2.3)], fill=BLACK)
     d.polygon([_p(hx + 0.5, hy - 2.3), _p(hx + 2.4, hy - 4.5), _p(hx + 2.9, hy - 1.4)], fill=BLACK)
 
+    # Eyes: two small dots, slightly forward and up on the head. White on the
+    # black silhouette so they read as eyes at 24dp.
+    eye_r = 0.55
+    eye_y = hy - 0.3
+    eye_x1 = hx + 0.6
+    eye_x2 = hx + 2.0
+    d.ellipse([_p(eye_x1 - eye_r, eye_y - eye_r), _p(eye_x1 + eye_r, eye_y + eye_r)], fill=(255, 255, 255, 255))
+    d.ellipse([_p(eye_x2 - eye_r, eye_y - eye_r), _p(eye_x2 + eye_r, eye_y + eye_r)], fill=(255, 255, 255, 255))
+
     # Pitch the whole silhouette about its centre: nose down as the front legs
     # reach, nose up in the gather. This is the cue that reads as running at
     # 24dp.
 
-    return img.rotate(-7.5 * s, resample=Image.BICUBIC, center=(cx * S, cy * S))
+    return img.rotate(-15.0 * s, resample=Image.BICUBIC, center=(cx * S, cy * S))
 
 
 # The loop holds two strides, and that is a speed control rather than a
